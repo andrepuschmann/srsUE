@@ -370,7 +370,7 @@ void phch_recv::run_thread()
             srslte_timestamp_add(&tx_time_prach, 0, 4e-3);
             worker->set_tx_time(tx_time);
             
-            Debug("Settting TTI=%d, tx_mutex=%d to worker %d\n", tti, tx_mutex_cnt, worker->get_id());
+            Debug("Setting TTI=%d, tx_mutex=%d to worker %d\n", tti, tx_mutex_cnt, worker->get_id());
             worker->set_tti(tti, tx_mutex_cnt);
             tx_mutex_cnt = (tx_mutex_cnt+1)%nof_tx_mutex;
 
