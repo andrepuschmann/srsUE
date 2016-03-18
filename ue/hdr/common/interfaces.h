@@ -85,8 +85,24 @@ public:
   virtual void write_pdu(uint32_t lcid, byte_buffer_t *pdu) = 0;
 };
 
+// NAS parameters
+class nas_interface_params
+{
+public:
+  typedef enum {
+    SKIP_MME_ATTACH = 0,
+    PDN_IP_ADDR,
+    NOF_PARAMS
+  } nas_param_t;
+
+  /* Get/Set NAS parameters */
+  virtual void    set_param(nas_param_t param, int64_t value) = 0;
+  virtual int64_t get_param(nas_param_t param) = 0;
+};
+
 // NAS interface for RRC
 class nas_interface_rrc
+    : public nas_interface_params
 {
 public:
   virtual bool      is_attached() = 0;

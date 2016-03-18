@@ -31,6 +31,7 @@
 #include "common/log.h"
 #include "common/common.h"
 #include "common/interfaces.h"
+#include "upper/nas_params.h"
 #include "liblte_mme.h"
 
 namespace srsue {
@@ -73,7 +74,11 @@ public:
   uint32_t  get_ul_count();
   bool      is_attached();
   bool      get_s_tmsi(LIBLTE_RRC_S_TMSI_STRUCT *s_tmsi);
-  
+
+  /* Get/Set NAS parameters */
+  void    set_param(nas_param_t param, int64_t value);
+  int64_t get_param(nas_param_t param);
+
 private:
   buffer_pool        *pool;
   srslte::log        *nas_log;
@@ -102,6 +107,8 @@ private:
   uint8_t  ksi;
   uint8_t  k_nas_enc[32];
   uint8_t  k_nas_int[32];
+
+  nas_params params_db;
 
   // Parsers
   void parse_attach_accept(uint32_t lcid, byte_buffer_t *pdu);

@@ -118,10 +118,12 @@ typedef struct {
   float sync_track_avg_coef;
   float sync_find_th;
   float sync_find_max_frames;
-  bool enable_64qam_attach; 
+  bool enable_64qam_attach;
   bool continuous_tx;
-  int nof_phy_threads;  
-  std::string equalizer_mode; 
+  int nof_phy_threads;
+  std::string equalizer_mode;
+  bool skip_mme_attach;
+  std::string pdn_ip_addr;
 }expert_args_t;
 
 typedef struct {

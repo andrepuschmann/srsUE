@@ -130,9 +130,10 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
         ("expert.nof_phy_threads",    bpo::value<int>(&args->expert.nof_phy_threads)->default_value(2), "Number of PHY threads")
         
         ("expert.equalizer_mode",    bpo::value<string>(&args->expert.equalizer_mode)->default_value("mmse"), "Equalizer mode")
-     
-        
-        
+
+        ("expert.skip_mme_attach",      bpo::value<bool>(&args->expert.skip_mme_attach)->default_value(false), "Whether to skip MME attach procesdure (default false)")
+        ("expert.pdn_ip_addr",          bpo::value<string>(&args->expert.pdn_ip_addr)->default_value("10.0.0.1"), "UEs IP address")
+
         ("rf_calibration.tx_corr_dc_gain",  bpo::value<float>(&args->rf_cal.tx_corr_dc_gain)->default_value(0.0),  "TX DC offset gain correction")
         ("rf_calibration.tx_corr_dc_phase", bpo::value<float>(&args->rf_cal.tx_corr_dc_phase)->default_value(0.0), "TX DC offset phase correction")
         ("rf_calibration.tx_corr_iq_i",     bpo::value<float>(&args->rf_cal.tx_corr_iq_i)->default_value(0.0),     "TX IQ imbalance inphase correction")
