@@ -126,7 +126,7 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
         ("expert.cqi_fixed",         
             bpo::value<int>(&args->expert.cqi_fixed)->default_value(-1), 
             "Fixes the reported CQI to a constant value. Default disabled.")
-        
+
         ("expert.cqi_random_ms",         
             bpo::value<int>(&args->expert.cqi_random_ms)->default_value(0), 
             "If non-zero, randomly change the reported CQI in the interval [cqi_fixed,cqi_fixed+cqi_offset].")
@@ -190,8 +190,15 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
         ("expert.estimator_fil_w",    
             bpo::value<float>(&args->expert.estimator_fil_w)->default_value(0.1), 
             "Chooses the coefficients for the 3-tap channel estimator centered filter.")
-        
-        
+
+        ("expert.skip_mme_attach",
+            bpo::value<bool>(&args->expert.skip_mme_attach)->default_value(false),
+            "Whether to skip MME attach procedure (default false)")
+
+        ("expert.pdn_ip_addr",
+            bpo::value<string>(&args->expert.pdn_ip_addr)->default_value("10.0.1.9"),
+            "UEs IP address")
+
         ("rf_calibration.tx_corr_dc_gain",  bpo::value<float>(&args->rf_cal.tx_corr_dc_gain)->default_value(0.0),  "TX DC offset gain correction")
         ("rf_calibration.tx_corr_dc_phase", bpo::value<float>(&args->rf_cal.tx_corr_dc_phase)->default_value(0.0), "TX DC offset phase correction")
         ("rf_calibration.tx_corr_iq_i",     bpo::value<float>(&args->rf_cal.tx_corr_iq_i)->default_value(0.0),     "TX IQ imbalance inphase correction")

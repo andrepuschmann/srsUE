@@ -597,4 +597,12 @@ void nas::send_service_request()
 
 void nas::send_esm_information_response(){}
 
+void nas::set_param(nas_interface_params::nas_param_t param, int64_t value) {
+  params_db.set_param((uint32_t) param, value);
+}
+
+int64_t nas::get_param(nas_param_t param) {
+  return params_db.get_param((uint32_t) param);
+}
+
 } // namespace srsue

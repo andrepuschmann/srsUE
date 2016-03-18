@@ -234,7 +234,7 @@ void ue::set_expert_parameters() {
   } else {
     phy.set_param(phy_interface_params::EQUALIZER_COEFF, atof(args->expert.equalizer_mode.c_str()));
   }
-  
+
   phy.set_param(phy_interface_params::CFO_INTEGER_ENABLED, args->expert.cfo_integer_enabled?1:0);
   phy.set_param(phy_interface_params::CFO_CORRECT_TOL_HZ_100, args->expert.cfo_correct_tol_hz*100);
   phy.set_param(phy_interface_params::TIME_CORRECT_PERIOD, args->expert.time_correct_period);
@@ -253,6 +253,13 @@ void ue::set_expert_parameters() {
   
   phy.set_param(phy_interface_params::ESTIMATOR_FIL_W_1000, args->expert.estimator_fil_w*1000);
 
+  nas.set_param(nas_interface_params::SKIP_MME_ATTACH, args->expert.skip_mme_attach ? 1 : 0);
+  struct in_addr tmp_addr;
+  if (inet_aton(args->expert.pdn_ip_addr.c_str(), &tmp_addr) == 1) {
+      nas.set_param(nas_interface_params::PDN_IP_ADDR, tmp_addr.s_addr);
+  } else {
+      nas_log.error("Failed to set user-defined IP address for PDN access.");
+  }
 }
 
 void ue::stop()
