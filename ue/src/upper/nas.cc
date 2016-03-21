@@ -73,10 +73,16 @@ bool nas::is_attached()
 void nas::notify_connection_setup()
 {
   nas_log->debug("State = %s\n", emm_state_text[state]);
-  if(EMM_STATE_DEREGISTERED == state) {
-    send_attach_request();
+  if (!params_db.get_param(SKIP_MME_ATTACH)) {
+    // this is the default behavior with MME attach
+    if(EMM_STATE_DEREGISTERED == state) {
+      send_attach_request();
+    } else {
+      send_service_request();
+    }
   } else {
-    send_service_request();
+    // skip MME attach procedure (for OAI noS1 support)
+    gen_forged_attach_accept();
   }
 }
 
@@ -603,6 +609,83 @@ void nas::set_param(nas_interface_params::nas_param_t param, int64_t value) {
 
 int64_t nas::get_param(nas_param_t param) {
   return params_db.get_param((uint32_t) param);
+}
+
+// For OAI noS1 compatablity support, forge attach accept message from eNB
+void nas::gen_forged_attach_accept()
+{
+    LIBLTE_MME_ATTACH_ACCEPT_MSG_STRUCT                                attach_accept;
+    LIBLTE_MME_ACTIVATE_DEFAULT_EPS_BEARER_CONTEXT_REQUEST_MSG_STRUCT  act_def_eps_bearer_context_req;
+    byte_buffer_t *buf = pool->allocate();
+
+    // retrieve and set the IP address
+    struct sockaddr_in ip;
+    memset(&ip, 0, sizeof(ip));
+    ip.sin_addr.s_addr = get_param(nas_interface_params::PDN_IP_ADDR);
+
+    // start constructing attach accepts
+    act_def_eps_bearer_context_req.eps_bearer_id = 5;
+    act_def_eps_bearer_context_req.proc_transaction_id = 1;
+    act_def_eps_bearer_context_req.eps_qos.qci            = 9;
+    act_def_eps_bearer_context_req.eps_qos.br_present     = false;
+    act_def_eps_bearer_context_req.eps_qos.br_ext_present = false;
+    act_def_eps_bearer_context_req.apn.apn                = "OAI";
+    act_def_eps_bearer_context_req.pdn_addr.pdn_type      = LIBLTE_MME_PDN_TYPE_IPV4;
+    act_def_eps_bearer_context_req.pdn_addr.addr[3]       = (ip.sin_addr.s_addr >> 24) & 0xFF;
+    act_def_eps_bearer_context_req.pdn_addr.addr[2]       = (ip.sin_addr.s_addr >> 16) & 0xFF;
+    act_def_eps_bearer_context_req.pdn_addr.addr[1]       = (ip.sin_addr.s_addr >> 8) & 0xFF;
+    act_def_eps_bearer_context_req.pdn_addr.addr[0]       = ip.sin_addr.s_addr & 0xFF;
+    act_def_eps_bearer_context_req.transaction_id_present = false;
+    act_def_eps_bearer_context_req.negotiated_qos_present = false;
+    act_def_eps_bearer_context_req.llc_sapi_present       = false;
+    act_def_eps_bearer_context_req.radio_prio_present     = false;
+    act_def_eps_bearer_context_req.packet_flow_id_present = false;
+    act_def_eps_bearer_context_req.apn_ambr_present       = false;
+
+    act_def_eps_bearer_context_req.esm_cause_present = false; // IPv4 only
+
+    act_def_eps_bearer_context_req.protocol_cnfg_opts_present = false;
+
+    act_def_eps_bearer_context_req.connectivity_type_present = false;
+    liblte_mme_pack_activate_default_eps_bearer_context_request_msg(&act_def_eps_bearer_context_req,
+                                                                    &attach_accept.esm_msg);
+
+    attach_accept.eps_attach_result                   = 1; // success
+    attach_accept.t3412.unit                          = LIBLTE_MME_GPRS_TIMER_DEACTIVATED;
+    attach_accept.tai_list.N_tais                     = 1;
+    //attach_accept.tai_list.tai[0].mcc                 = sys_info.mcc;
+    //attach_accept.tai_list.tai[0].mnc                 = sys_info.mnc;
+    //attach_accept.tai_list.tai[0].tac                 = sys_info.sib1.tracking_area_code;
+    attach_accept.guti_present                        = true;
+    attach_accept.guti.type_of_id                     = LIBLTE_MME_EPS_MOBILE_ID_TYPE_GUTI;
+    //attach_accept.guti.guti.mcc                       = sys_info.mcc;
+    //attach_accept.guti.guti.mnc                       = sys_info.mnc;
+    attach_accept.guti.guti.mme_group_id              = 0;
+    attach_accept.guti.guti.mme_code                  = 0;
+    //attach_accept.guti.guti.m_tmsi                    = user_mgr->get_next_m_tmsi();
+    attach_accept.lai_present                         = false;
+    attach_accept.ms_id_present                       = false;
+    attach_accept.emm_cause_present                   = false;
+    attach_accept.t3402_present                       = false;
+    attach_accept.t3423_present                       = false;
+    attach_accept.equivalent_plmns_present            = false;
+    attach_accept.emerg_num_list_present              = false;
+    attach_accept.eps_network_feature_support_present = false;
+    attach_accept.additional_update_result_present    = false;
+    attach_accept.t3412_ext_present                   = false;
+
+    // use dummy values here as those will not be evaluated further
+    uint32 count = 1;
+
+    // pack the message
+    liblte_mme_pack_attach_accept_msg(&attach_accept,
+                                      LIBLTE_MME_SECURITY_HDR_TYPE_INTEGRITY_AND_CIPHERED,
+                                      count,
+                                      (LIBLTE_BYTE_MSG_STRUCT*)buf);
+
+    // send the message
+    nas_log->info("Sending forged Attach Accept\n");
+    write_pdu(RB_ID_SRB1, buf);
 }
 
 } // namespace srsue
