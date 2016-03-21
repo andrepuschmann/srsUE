@@ -128,6 +128,8 @@ private:
   void send_esm_information_response();
 
   void gen_pdn_connectivity_request(LIBLTE_BYTE_MSG_STRUCT *msg);
+
+  void gen_forged_attach_accept(); // for OAI noS1 support
 };
 
 } // namespace srsue
