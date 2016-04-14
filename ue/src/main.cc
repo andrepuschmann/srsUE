@@ -38,7 +38,7 @@
 
 #include "version.h"
 #include "ue.h"
-#include "metrics_stdout.h"
+#include "common/metrics_factory.h"
 
 using namespace std;
 using namespace srsue;
@@ -298,7 +298,7 @@ void *input_loop(void *m)
       } else {
         cout << "Enter t to restart trace." << endl;
       }
-      metrics->toggle_print(do_metrics);
+      metrics->toggle_active(do_metrics);
     }
   }
   return NULL;
@@ -308,7 +308,7 @@ int main(int argc, char *argv[])
 {
   signal(SIGINT, sig_int_handler);
   all_args_t     args;
-  metrics_stdout metrics;
+  metrics       *metrics = metrics_factory::make_metrics(METRICS_STDOUT);
   ue            *ue = ue::get_instance();
 
   cout << "---  Software Radio Systems LTE UE  ---" << endl << endl;
@@ -317,7 +317,7 @@ int main(int argc, char *argv[])
   if(!ue->init(&args)) {
     exit(1);
   }
-  metrics.init(ue, args.expert.metrics_period_secs);
+  metrics->init(ue, args.expert.metrics_period_secs);
 
   pthread_t input;
   pthread_create(&input, NULL, &input_loop, &metrics);
@@ -340,7 +340,8 @@ int main(int argc, char *argv[])
     sleep(1);
   }
   pthread_cancel(input);
-  metrics.stop();
+  metrics->stop();
+  delete(metrics);
   ue->stop();
   ue->cleanup();
   cout << "---  exiting  ---" << endl;
