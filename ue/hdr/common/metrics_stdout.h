@@ -36,11 +36,12 @@
 #include <stdint.h>
 #include <string>
 
+#include "common/metrics.h"
 #include "ue_metrics_interface.h"
 
 namespace srsue {
 
-class metrics_stdout
+class metrics_stdout : public metrics
 {
 public:
   metrics_stdout() {}
@@ -55,18 +56,6 @@ public:
 private:
   void        print_metrics();
   void        print_disconnect();
-  std::string float_to_string(float f, int digits);
-  std::string float_to_eng_string(float f, int digits);
-  std::string int_to_eng_string(int f, int digits);
-  
-  ue_metrics_interface *ue_;
-
-  bool          started;
-  bool          do_print;
-  pthread_t     metrics_thread;
-  ue_metrics_t  metrics;
-  float         metrics_report_period; // seconds
-  uint8_t       n_reports;
 };
 
 } // namespace srsue
