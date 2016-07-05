@@ -32,6 +32,7 @@ include(SRSUEVersion) #sets version information
 # Options
 ########################################################################
 option(ENABLE_GUI "ENABLE_GUI" ON)
+option(ENABLE_OML2 "ENABLE_OML2" ON)
 
 ########################################################################
 # Add general includes and dependencies
@@ -127,6 +128,11 @@ if(ENABLE_GUI)
         link_directories(${SRSGUI_LIBRARY_DIRS})
     endif(SRSGUI_FOUND)
 endif(ENABLE_GUI)
+
+if(ENABLE_OML2)
+find_package(OML2 REQUIRED)
+add_subdirectory(oml2)
+endif(ENABLE_OML2)
 
 ########################################################################
 # Setup the include and linker paths

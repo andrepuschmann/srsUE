@@ -23,7 +23,8 @@ add_subdirectory(phy)
 add_subdirectory(mac)
 add_subdirectory(upper)
 
-add_executable(ue main.cc ue.cc metrics_stdout.cc)
+add_executable(ue main.cc ue.cc metrics_oml2.cc)
+add_dependencies(ue scaffold)
 target_link_libraries(ue    srsue_upper
                             srsue_common
                             srsue_mac
@@ -31,4 +32,5 @@ target_link_libraries(ue    srsue_upper
                             srsue_radio
                             lte
                             ${CMAKE_THREAD_LIBS_INIT}
-                            ${Boost_LIBRARIES})
+                            ${Boost_LIBRARIES}
+                            ${OML2_LIBRARIES})

@@ -1,4 +1,4 @@
-# Copyright 2015 Software Radio Systems Limited
+# Copyright 2016 Software Radio Systems Limited
 #
 # This file is part of srsUE
 #
@@ -17,10 +17,12 @@
 # and at http://www.gnu.org/licenses/.
 #
 
-add_subdirectory(common)
-add_subdirectory(phy)
-add_subdirectory(mac)
-add_subdirectory(upper)
+########################################################################
+# Create custom target to generate OML2 headers
+########################################################################
 
-add_executable(metrics_oml2_test metrics_oml2_test.cc ${CMAKE_SOURCE_DIR}/ue/src/metrics_oml2.cc)
-target_link_libraries(metrics_oml2_test srsue_common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${OML2_LIBRARIES})
+
+add_custom_target(
+    scaffold
+    COMMAND oml2-scaffold --oml ${CMAKE_CURRENT_SOURCE_DIR}/srsue.rb.in
+)

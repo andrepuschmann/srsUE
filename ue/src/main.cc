@@ -38,7 +38,7 @@
 
 #include "version.h"
 #include "ue.h"
-#include "metrics_stdout.h"
+#include "metrics_oml2.h"
 
 using namespace std;
 using namespace srsue;
@@ -198,7 +198,14 @@ void parse_args(all_args_t *args, int argc, char* argv[]) {
         ("rf_calibration.tx_corr_iq_q",     bpo::value<float>(&args->rf_cal.tx_corr_iq_q)->default_value(0.0),     "TX IQ imbalance quadrature correction")
         
     ;
-    
+
+    // adding dummy parameters needed for OML2 client library
+    string tmp;
+    common.add_options()
+      ("oml-id", bpo::value<string>(&tmp), "")
+      ("oml-domain", bpo::value<string>(&tmp), "")
+      ("oml-collect", bpo::value<string>(&tmp), "");
+
     // Positional options - config file location
     bpo::options_description position("Positional options");
     position.add_options()
@@ -315,7 +322,7 @@ void sig_int_handler(int signo)
 
 void *input_loop(void *m)
 {
-  metrics_stdout *metrics = (metrics_stdout*)m;
+  metrics_oml2 *metrics = (metrics_oml2*)m;
   char key;
   while(running) {
     cin >> key;
@@ -328,6 +335,9 @@ void *input_loop(void *m)
       }
       metrics->toggle_print(do_metrics);
     }
+    if('q' == key) {
+      running = false;
+    }
   }
   return NULL;
 }
@@ -336,16 +346,16 @@ int main(int argc, char *argv[])
 {
   signal(SIGINT, sig_int_handler);
   all_args_t     args;
-  metrics_stdout metrics;
+  metrics_oml2 metrics;
   ue            *ue = ue::get_instance();
 
-  cout << "---  Software Radio Systems LTE UE  ---" << endl << endl;
+  cout << "---  Software Radio Systems LTE UE (OML2-instrumented)  ---" << endl << endl;
 
   parse_args(&args, argc, argv);
   if(!ue->init(&args)) {
     exit(1);
   }
-  metrics.init(ue, args.expert.metrics_period_secs);
+  metrics.init(ue, args.expert.metrics_period_secs, argc, argv);
 
   pthread_t input;
   pthread_create(&input, NULL, &input_loop, &metrics);

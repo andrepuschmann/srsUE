@@ -1,0 +1,94 @@
+#
+# Copyright 2016 Software Radio Systems
+#
+defApplication('oml:app:srsue', 'srsue') do |app|
+
+  app.version(1, 2, -0)
+  app.shortDescription = 'srsUE is a LTE UE implementation'
+  app.description = %{srsUE is a LTE UE implementation
+  }
+  app.path = "@bindir@/ue"
+
+  app.defProperty('rf.dl_freq', 'Downlink centre frequency', '--rf.dl_freq',
+          :type => :double, :unit => "MHz", :default => '2.68e+09')
+  app.defProperty('rf.ul_freq', 'Uplink centre frequency', '--rf.ul_freq',
+          :type => :double, :unit => "MHz", :default => '2.56e+09')
+  app.defProperty('rf.rx_gain', 'Front-end receiver gain', '--rf.rx_gain',
+          :type => :integer, :unit => "dBm", :default => '-1')
+  app.defProperty('rf.tx_gain', 'Front-end transmitter gain', '--rf.tx_gain',
+          :type => :integer, :unit => "dBm", :default => '-1')
+  app.defProperty('rf.device_name', 'Front-end device name', '--rf.device_name',
+          :type => :string, :default => 'auto') 
+  app.defProperty('rf.device_args', 'Front-end device arguments', '--rf.device_args',
+          :type => :string, :default => 'auto')
+  app.defProperty('metrics_period_secs', 'Periodicity for metrics in seconds', '--expert.metrics_period_secs',
+          :type => :double, :unit => "seconds", :default => '1')
+
+  app.defMeasurement("phy"){ |m|
+    # Uplink parameters
+    m.defMetric('ul_mcs', :double, :unit => "none",
+        :description => 'Modulation and coding scheme')
+    m.defMetric('ul_power', :double, :unit => "dBm",
+        :description => 'Uplink power')
+    m.defMetric('ul_mabr', :double, :unit => "Mbps",
+        :description => 'Uplink maximum achievable bitrate')
+
+    # Downlink parameters
+    m.defMetric('dl_noise', :double, :unit => "?",
+        :description => 'Average noise')
+    m.defMetric('dl_sinr', :double, :unit => "dB",
+        :description => 'Signal to interference plus noise ratio')
+    m.defMetric('dl_rsrp', :integer, :unit => "dBm",
+        :description => 'Reference Signal Received Power')
+    m.defMetric('dl_rsrq', :integer, :unit => "dB",
+        :description => 'Reference Signal Received Quality')
+    m.defMetric('dl_rssi', :integer, :unit => "dBm",
+        :description => 'Received Signal Srength Indicator')
+    m.defMetric('dl_pathloss', :double, :unit => "dB",
+        :description => 'Pahloss')
+    m.defMetric('dl_turboiters', :integer, :unit => "iterations",
+        :description => 'Turbo decoder iterations')
+    m.defMetric('dl_mabr', :double, :unit => "Mbps",
+        :description => 'Downlink maximum achievable bitrate')
+    m.defMetric('dl_mcs', :double, :unit => "none",
+        :description => 'Modulation and coding scheme')
+
+    # Synchronization parameters
+    m.defMetric('cfo', :double, :unit => "Hz",
+        :description => 'Carrier frequency offset')
+    m.defMetric('sfo', :double, :unit => "Hz",
+        :description => 'Sampling frequency offset')
+  }
+
+  app.defMeasurement("mac"){ |m|
+    m.defMetric('tx_pkts', :integer, :unit => "packets",
+        :description => 'Transmitted packets')
+    m.defMetric('tx_errors', :integer, :unit => "packets",
+        :description => 'Transmit errors')
+    m.defMetric('tx_brate', :integer, :unit => "bits",
+        :description => 'Transmitted bits')
+    m.defMetric('rx_pkts', :integer, :unit => "packets",
+        :description => 'Received packets')
+    m.defMetric('rx_errors', :integer, :unit => "packets",
+        :description => 'Receive errors')
+    m.defMetric('rx_brate', :integer, :unit => "bits",
+        :description => 'Received bits')
+    m.defMetric('ul_buffer', :integer, :unit => "packets",
+        :description => 'Uplink buffer')
+  }
+
+  app.defMeasurement("rlc"){ |m|
+    m.defMetric('dl_tput', :double, :unit => "Mbps",
+        :description => 'Downlink throughput')
+    m.defMetric('ul_tput', :double, :unit => "Mbps",
+        :description => 'Uplink throughput')
+  }
+
+  app.defMeasurement("gw"){ |m|
+    m.defMetric('dl_tput', :double, :unit => "Mbps",
+        :description => 'Downlink throughput')
+    m.defMetric('ul_tput', :double, :unit => "Mbps",
+        :description => 'Uplink throughput')
+  }
+
+end
