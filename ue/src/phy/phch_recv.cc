@@ -100,12 +100,36 @@ void phch_recv::set_time_adv_sec(float _time_adv_sec) {
  time_adv_sec = _time_adv_sec;
 }
 
+void phch_recv::set_ue_sync_opts(srslte_ue_sync_t *q) {
+  if (worker_com->params_db->get_param(phy_interface_params::CFO_INTEGER_ENABLED)) {
+    srslte_ue_sync_cfo_i_detec_en(q, true); 
+  }
+  
+  float cfo_tol = (float) worker_com->params_db->get_param(phy_interface_params::CFO_CORRECT_TOL_HZ_100)/100; 
+  srslte_cfo_set_tol(&q->strack.cfocorr, cfo_tol/(15000*q->fft_size));
+  srslte_cfo_set_tol(&q->sfind.cfocorr, cfo_tol/(15000*q->fft_size));
+
+  int time_correct_period = worker_com->params_db->get_param(phy_interface_params::TIME_CORRECT_PERIOD); 
+  if (time_correct_period > 0) {
+    srslte_ue_sync_set_sample_offset_correct_period(q, time_correct_period);     
+  }
+  int sss_alg = worker_com->params_db->get_param(phy_interface_params::SSS_ALGORITHM); 
+  if (sss_alg >= 0 && sss_alg < 3) {
+    srslte_sync_set_sss_algorithm(&q->strack, (sss_alg_t) sss_alg); 
+    srslte_sync_set_sss_algorithm(&q->sfind, (sss_alg_t) sss_alg); 
+  }  
+}
+
 bool phch_recv::init_cell() {
   cell_is_set = false;
   if (!srslte_ue_mib_init(&ue_mib, cell)) 
   {
     if (!srslte_ue_sync_init(&ue_sync, cell, radio_recv_wrapper_cs, radio_h)) 
     {
+
+      // Set options defined in expert section 
+      set_ue_sync_opts(&ue_sync); 
+      
       worker_com->params_db->set_param(phy_interface_params::PHY_CELL_ID, cell.id);
       for (int i=0;i<workers_pool->get_nof_workers();i++) {
         if (!((phch_worker*) workers_pool->get_worker(i))->init_cell(cell)) {
@@ -150,20 +174,20 @@ bool phch_recv::cell_search(int force_N_id_2)
   bzero(found_cells, 3*sizeof(srslte_ue_cellsearch_result_t));
 
   log_h->console("Searching for cell...\n");
-  if (srslte_ue_cellsearch_init(&cs, radio_recv_wrapper_cs, radio_h)) {
+  if (srslte_ue_cellsearch_init(&cs, SRSLTE_DEFAULT_MAX_FRAMES_PSS, radio_recv_wrapper_cs, radio_h)) {
     Error("Initiating UE cell search\n");
     return false; 
   }
+  
+  srslte_ue_cellsearch_set_nof_valid_frames(&cs, SRSLTE_DEFAULT_NOF_VALID_PSS_FRAMES);
+  
+  // Set options defined in expert section 
+  set_ue_sync_opts(&cs.ue_sync); 
   
   if (do_agc) {
     srslte_ue_sync_start_agc(&cs.ue_sync, callback_set_rx_gain, last_gain);
   }
   
-  srslte_ue_cellsearch_set_nof_frames_to_scan(&cs, 
-    worker_com->params_db->get_param(phy_interface_params::CELLSEARCH_TIMEOUT_PSS_NFRAMES));
-  srslte_ue_cellsearch_set_threshold(&cs, (float) 
-    worker_com->params_db->get_param(phy_interface_params::CELLSEARCH_TIMEOUT_PSS_CORRELATION_THRESHOLD)/10);
-
   radio_h->set_rx_srate(1.92e6);
   radio_h->start_rx();
   
@@ -196,7 +220,8 @@ bool phch_recv::cell_search(int force_N_id_2)
   cell.cp   = found_cells[max_peak_cell].cp; 
   cellsearch_cfo = found_cells[max_peak_cell].cfo;
   
-  log_h->console("Found CELL ID: %d CP: %s, CFO: %.1f KHz.\nTrying to decode MIB...\n", cell.id, srslte_cp_string(cell.cp), cellsearch_cfo/1000);
+  log_h->console("Found CELL ID: %d CP: %s, CFO: %.1f KHz.\nTrying to decode MIB...\n", 
+                 cell.id, srslte_cp_string(cell.cp), cellsearch_cfo/1000);
   
   srslte_ue_mib_sync_t ue_mib_sync; 
 
@@ -205,16 +230,21 @@ bool phch_recv::cell_search(int force_N_id_2)
     return false; 
   }
   
+  // Set options defined in expert section 
+  set_ue_sync_opts(&ue_mib_sync.ue_sync); 
+
   if (do_agc) {
     srslte_ue_sync_start_agc(&ue_mib_sync.ue_sync, callback_set_rx_gain, last_gain);    
   }
+
+  srslte_ue_sync_set_cfo(&ue_mib_sync.ue_sync, cellsearch_cfo);
 
   /* Find and decode MIB */
   uint32_t sfn; 
   int sfn_offset; 
   radio_h->start_rx();
   ret = srslte_ue_mib_sync_decode(&ue_mib_sync, 
-                                  worker_com->params_db->get_param(phy_interface_params::CELLSEARCH_TIMEOUT_MIB_NFRAMES), 
+                                  SRSLTE_DEFAULT_MAX_FRAMES_PBCH, 
                                   bch_payload, &cell.nof_ports, &sfn_offset); 
   radio_h->stop_rx();
   last_gain = srslte_agc_get_gain(&ue_mib_sync.ue_sync.agc);
@@ -224,7 +254,10 @@ bool phch_recv::cell_search(int force_N_id_2)
     srslte_pbch_mib_unpack(bch_payload, &cell, NULL);
     worker_com->set_cell(cell);
     srslte_cell_fprint(stdout, &cell, 0);
-    //FIXME: this is temporal
+    
+    // Update CFO estimate
+    cellsearch_cfo = srslte_ue_sync_get_cfo(&ue_mib_sync.ue_sync);
+    
     srslte_bit_pack_vector(bch_payload, bch_payload_bits, SRSLTE_BCH_PAYLOAD_LEN);
     mac->bch_decoded_ok(bch_payload_bits, SRSLTE_BCH_PAYLOAD_LEN/8);
     return true;     
@@ -251,7 +284,7 @@ int phch_recv::sync_sfn(void) {
   if (ret == 1) {
     if (srslte_ue_sync_get_sfidx(&ue_sync) == 0) {
       int sfn_offset=0;
-      Info("SYNC_SFN: Decoding MIB...\n");
+      Info("SYNC:  Decoding MIB...\n");
       int n = srslte_ue_mib_decode(&ue_mib, sf_buffer, bch_payload, NULL, &sfn_offset);
       if (n < 0) {
         Error("Error decoding MIB while synchronising SFN");      
@@ -264,13 +297,13 @@ int phch_recv::sync_sfn(void) {
         tti = sfn*10;
         
         srslte_ue_sync_decode_sss_on_track(&ue_sync, true);
-        Info("SYNC_SFN: DONE, TTI=%d, sfn_offset=%d\n", tti, sfn_offset);
+        Info("SYNC:  DONE, TTI=%d, sfn_offset=%d\n", tti, sfn_offset);
         srslte_ue_mib_reset(&ue_mib);
         return 1;
       }
     }    
   } else {
-    Info("SYNC_SFN: PSS/SSS not found...\n");
+    Info("SYNC:  PSS/SSS not found...\n");
   }
   return 0;
 }
@@ -289,6 +322,7 @@ void phch_recv::run_thread()
     switch(phy_state) {
       case CELL_SEARCH:
         if (cell_search()) {
+          log_h->console("Initializating cell configuration...\n");
           init_cell();
           float srate = (float) srslte_sampling_freq_hz(cell.nof_prb); 
           if (srate < 10e6) {
@@ -296,17 +330,20 @@ void phch_recv::run_thread()
           } else {
             radio_h->set_master_clock_rate(srate);        
           }
-          printf("Setting Sampling frequency %.2f MHz\n", (float) srate/1000000);
+          log_h->console("Setting Sampling frequency %.2f MHz\n", (float) srate/1000000);
 
           radio_h->set_rx_srate(srate);
           radio_h->set_tx_srate(srate);
-          Info("Cell found. Synchronizing...\n");
+          Info("SYNC:  Cell found. Synchronizing...\n");
           phy_state = SYNCING;
           sync_sfn_cnt = 0; 
           srslte_ue_mib_reset(&ue_mib);
         }
         break;
       case SYNCING:
+        
+        srslte_ue_sync_decode_sss_on_track(&ue_sync, true);
+        
         if (!radio_is_streaming) {
           // Start streaming
           radio_h->start_rx();
@@ -328,6 +365,8 @@ void phch_recv::run_thread()
         sync_sfn_cnt++;
         if (sync_sfn_cnt >= SYNC_SFN_TIMEOUT) {
           sync_sfn_cnt = 0; 
+          radio_h->stop_rx();
+          radio_is_streaming = false; 
           log_h->console("Timeout while synchronizing SFN\n");
           log_h->warning("Timeout while synchronizing SFN\n");
         }
@@ -335,15 +374,7 @@ void phch_recv::run_thread()
           rrc->out_of_sync();
         }
        break;
-      case SYNC_DONE:
-        /* Set synchronization track phase threshold and averaging factor */
-        if (worker_com->params_db->get_param(phy_interface_params::SYNC_TRACK_THRESHOLD) > 0) {
-          srslte_sync_set_threshold(&ue_sync.strack, (float) worker_com->params_db->get_param(phy_interface_params::SYNC_TRACK_THRESHOLD)/10);          
-        }
-        if (worker_com->params_db->get_param(phy_interface_params::SYNC_TRACK_AVG_COEFF) > 0) {
-          srslte_sync_set_em_alpha(&ue_sync.strack, (float) worker_com->params_db->get_param(phy_interface_params::SYNC_TRACK_THRESHOLD)/10);
-        }
-        
+      case SYNC_DONE:        
         tti = (tti+1)%10240;        
         worker = (phch_worker*) workers_pool->wait_worker(tti);
         sync_res = 0; 
@@ -361,6 +392,9 @@ void phch_recv::run_thread()
             worker->set_cfo(metrics.cfo/15000);
             worker_com->set_sync_metrics(metrics);
     
+            float sample_offset = (float) srslte_ue_sync_get_sfo(&ue_sync)/1000; 
+            worker->set_sample_offset(sample_offset);
+            
             /* Compute TX time: Any transmission happens in TTI+4 thus advance 4 ms the reception time */
             srslte_timestamp_t rx_time, tx_time, tx_time_prach; 
             srslte_ue_sync_get_last_timestamp(&ue_sync, &rx_time); 
@@ -378,9 +412,6 @@ void phch_recv::run_thread()
             if (prach_buffer->is_ready_to_send(tti)) {
               srslte_timestamp_t cur_time; 
               radio_h->get_time(&cur_time);
-              Info("TX PRACH now. RX time: %d:%f, Now: %d:%f\n", rx_time.full_secs, rx_time.frac_secs, 
-                   cur_time.full_secs, cur_time.frac_secs);
-              // send prach if we have to 
               prach_buffer->send(radio_h, metrics.cfo/15000, worker_com->pathloss, tx_time_prach);
               radio_h->tx_end();            
               worker_com->p0_preamble = prach_buffer->get_p0_preamble();

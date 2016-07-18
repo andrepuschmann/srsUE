@@ -32,6 +32,8 @@
 #include <srslte/utils/bit.h>
 #include "liblte_security.h"
 
+#define TIMEOUT_RESYNC_REESTABLISH 100
+
 using namespace srslte;
 
 namespace srsue{
@@ -193,6 +195,7 @@ bool rrc::have_drb()
 void rrc::write_pdu(uint32_t lcid, byte_buffer_t *pdu)
 {
   rrc_log->info_hex(pdu->msg, pdu->N_bytes, "DL %s PDU", rb_id_text[lcid]);
+  rrc_log->info("DL PDU Stack latency: %ld us\n", pdu->get_latency_us());
 
   switch(lcid)
   {
@@ -214,6 +217,7 @@ void rrc::write_pdu_bcch_bch(byte_buffer_t *pdu)
 {
   // Unpack the MIB
   rrc_log->info_hex(pdu->msg, pdu->N_bytes, "BCCH BCH message received.");
+  rrc_log->info("BCCH BCH message Stack latency: %ld us\n", pdu->get_latency_us());
   srslte_bit_unpack_vector(pdu->msg, bit_buf.msg, pdu->N_bytes*8);
   bit_buf.N_bits = pdu->N_bytes*8;
   pool->deallocate(pdu);
@@ -229,6 +233,7 @@ void rrc::write_pdu_bcch_bch(byte_buffer_t *pdu)
 void rrc::write_pdu_bcch_dlsch(byte_buffer_t *pdu)
 {
   rrc_log->info_hex(pdu->msg, pdu->N_bytes, "BCCH DLSCH message received.");
+  rrc_log->info("BCCH DLSCH message Stack latency: %ld us\n", pdu->get_latency_us());
   LIBLTE_RRC_BCCH_DLSCH_MSG_STRUCT dlsch_msg;
   srslte_bit_unpack_vector(pdu->msg, bit_buf.msg, pdu->N_bytes*8);
   bit_buf.N_bits = pdu->N_bytes*8;
@@ -272,6 +277,7 @@ void rrc::write_pdu_pcch(byte_buffer_t *pdu)
 {
   if (pdu->N_bytes > 0 && pdu->N_bytes < SRSUE_MAX_BUFFER_SIZE_BITS) {
     rrc_log->info_hex(pdu->msg, pdu->N_bytes, "PCCH message received %d bytes\n", pdu->N_bytes);
+    rrc_log->info("PCCH message Stack latency: %ld us\n", pdu->get_latency_us());
     rrc_log->console("PCCH message received %d bytes\n", pdu->N_bytes);
     
     LIBLTE_RRC_PCCH_MSG_STRUCT pcch_msg;
@@ -327,7 +333,7 @@ void rrc::max_retx_attempted()
 
 void rrc::send_con_request()
 {
-  rrc_log->debug("Preparing RRC Connection Request");
+  rrc_log->debug("Preparing RRC Connection Request\n");
   LIBLTE_RRC_UL_CCCH_MSG_STRUCT ul_ccch_msg;
   LIBLTE_RRC_S_TMSI_STRUCT      s_tmsi;
 
@@ -353,6 +359,7 @@ void rrc::send_con_request()
   byte_buffer_t *pdcp_buf = pool->allocate();
   srslte_bit_pack_vector(bit_buf.msg, pdcp_buf->msg, bit_buf.N_bits);
   pdcp_buf->N_bytes = bit_buf.N_bits/8;
+  pdcp_buf->timestamp = bpt::microsec_clock::local_time();
 
   // Set UE contention resolution ID in MAC
   uint64_t uecri=0;
@@ -419,8 +426,10 @@ void rrc::send_con_restablish_request()
   phy->resync_sfn();
   
   // Wait for cell re-synchronization  
-  while(!phy->status_is_sync()){
+  uint32_t timeout_cnt = 0; 
+  while(!phy->status_is_sync() && timeout_cnt < TIMEOUT_RESYNC_REESTABLISH){
     usleep(10000);
+    timeout_cnt++; 
   }
   mac_timers->get(t301)->reset();
   mac_timers->get(t301)->run();
@@ -505,6 +514,7 @@ void rrc::send_con_setup_complete(byte_buffer_t *nas_msg)
   byte_buffer_t *pdcp_buf = pool->allocate();
   srslte_bit_pack_vector(bit_buf.msg, pdcp_buf->msg, bit_buf.N_bits);
   pdcp_buf->N_bytes = bit_buf.N_bits/8;
+  pdcp_buf->timestamp = bpt::microsec_clock::local_time();
 
   state = RRC_STATE_RRC_CONNECTED;
   rrc_log->console("RRC Connected\n");
@@ -537,6 +547,7 @@ void rrc::send_ul_info_transfer(uint32_t lcid, byte_buffer_t *sdu)
   }
   srslte_bit_pack_vector(bit_buf.msg, pdu->msg, bit_buf.N_bits);
   pdu->N_bytes = bit_buf.N_bits/8;
+  pdu->timestamp = bpt::microsec_clock::local_time();
 
   rrc_log->info("Sending UL Info Transfer\n");
   pdcp->write_sdu(lcid, pdu);
@@ -559,6 +570,7 @@ void rrc::send_security_mode_complete(uint32_t lcid, byte_buffer_t *pdu)
   }
   srslte_bit_pack_vector(bit_buf.msg, pdu->msg, bit_buf.N_bits);
   pdu->N_bytes = bit_buf.N_bits/8;
+  pdu->timestamp = bpt::microsec_clock::local_time();
 
   rrc_log->info("Sending Security Mode Complete\n");
   pdcp->write_sdu(lcid, pdu);
@@ -582,6 +594,7 @@ void rrc::send_rrc_con_reconfig_complete(uint32_t lcid, byte_buffer_t *pdu)
   }
   srslte_bit_pack_vector(bit_buf.msg, pdu->msg, bit_buf.N_bits);
   pdu->N_bytes = bit_buf.N_bits/8;
+  pdu->timestamp = bpt::microsec_clock::local_time();
 
   rrc_log->info("Sending RRC Connection Reconfig Complete\n");
   pdcp->write_sdu(lcid, pdu);
@@ -667,6 +680,7 @@ void rrc::send_rrc_ue_cap_info(uint32_t lcid, byte_buffer_t *pdu)
   }
   srslte_bit_pack_vector(bit_buf.msg, pdu->msg, bit_buf.N_bits);
   pdu->N_bytes = bit_buf.N_bits/8;
+  pdu->timestamp = bpt::microsec_clock::local_time();
 
   rrc_log->info("Sending UE Capability Info\n");
   pdcp->write_sdu(lcid, pdu);
@@ -811,6 +825,12 @@ void rrc::rrc_connection_release() {
     mac_timers->get(t311)->stop();
     rrc_log->console("RRC Connection released.\n");
     mac->pcch_start_rx();
+}
+
+void rrc::test_con_restablishment()
+{
+  printf("Testing connection Restablishment\n"); 
+  send_con_restablish_request();
 }
 
 /* Detection of radio link failure (5.3.11.3) */
@@ -1128,8 +1148,6 @@ void rrc::apply_rr_config_dedicated(LIBLTE_RRC_RR_CONFIG_DEDICATED_STRUCT *cnfg)
           //TODO
       }
 
-      phy->configure_ul_params();
-
       rrc_log->info("Set PHY config ded: SR-n_pucch=%d, SR-ConfigIndex=%d, SR-TransMax=%d, SRS-ConfigIndex=%d, SRS-bw=%d, SRS-Nrcc=%d, SRS-hop=%d, SRS-Ncs=%d\n",
                    phy_cnfg->sched_request_cnfg.sr_pucch_resource_idx,
                    phy_cnfg->sched_request_cnfg.sr_cnfg_idx,
@@ -1192,6 +1210,10 @@ void rrc::apply_rr_config_dedicated(LIBLTE_RRC_RR_CONFIG_DEDICATED_STRUCT *cnfg)
     // TODO: handle SRB modification
     add_srb(&cnfg->srb_to_add_mod_list[i]);
   }
+  for(int i=0; i<cnfg->drb_to_release_list_size; i++)
+  {
+    release_drb(cnfg->drb_to_release_list[i]);
+  }
   for(int i=0; i<cnfg->drb_to_add_mod_list_size; i++)
   {
     // TODO: handle DRB modification
@@ -1211,6 +1233,9 @@ void rrc::handle_con_setup(LIBLTE_RRC_CONNECTION_SETUP_STRUCT *setup)
   
   // Apply the Radio Resource configuration
   apply_rr_config_dedicated(&setup->rr_cnfg);
+  
+  // Apply changes to PHY
+  phy->configure_ul_params();
 }
 
 /* Reception of RRCConnectionRestablishment by the UE 5.3.7.5 */
@@ -1223,6 +1248,9 @@ void rrc::handle_con_reest(LIBLTE_RRC_CONNECTION_REESTABLISHMENT_STRUCT *setup)
   // Apply the Radio Resource configuration
   apply_rr_config_dedicated(&setup->rr_cnfg);
 
+  // Apply changes to phy
+  phy->configure_ul_params();
+
   // TODO: Some security stuff here... is it necessary?
   
   send_con_restablish_complete();
@@ -1232,7 +1260,11 @@ void rrc::handle_con_reest(LIBLTE_RRC_CONNECTION_REESTABLISHMENT_STRUCT *setup)
 void rrc::handle_rrc_con_reconfig(uint32_t lcid, LIBLTE_RRC_CONNECTION_RECONFIGURATION_STRUCT *reconfig, byte_buffer_t *pdu)
 {
   uint32_t i;
-
+  
+  if (reconfig->rr_cnfg_ded_present) {
+    apply_rr_config_dedicated(&reconfig->rr_cnfg_ded);
+    phy->configure_ul_params(true);
+  }
   if(reconfig->meas_cnfg_present)
   {
     //TODO: handle meas_cnfg
@@ -1240,27 +1272,6 @@ void rrc::handle_rrc_con_reconfig(uint32_t lcid, LIBLTE_RRC_CONNECTION_RECONFIGU
   if(reconfig->mob_ctrl_info_present)
   {
     //TODO: handle mob_ctrl_info
-  }
-
-  if(reconfig->rr_cnfg_ded_present)
-  {
-    uint32_t n_srb = reconfig->rr_cnfg_ded.srb_to_add_mod_list_size;
-    for(i=0; i<n_srb; i++)
-    {
-      add_srb(&reconfig->rr_cnfg_ded.srb_to_add_mod_list[i]);
-    }
-
-    uint32_t n_drb_rel = reconfig->rr_cnfg_ded.drb_to_release_list_size;
-    for(i=0; i<n_drb_rel; i++)
-    {
-      release_drb(reconfig->rr_cnfg_ded.drb_to_release_list[i]);
-    }
-
-    uint32_t n_drb = reconfig->rr_cnfg_ded.drb_to_add_mod_list_size;
-    for(i=0; i<n_drb; i++)
-    {
-      add_drb(&reconfig->rr_cnfg_ded.drb_to_add_mod_list[i]);
-    }
   }
 
   send_rrc_con_reconfig_complete(lcid, pdu);

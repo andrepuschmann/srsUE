@@ -84,7 +84,6 @@ bool mux::is_pending_sdu(uint32_t lch_id) {
 
 void mux::set_priority(uint32_t lch_id, uint32_t set_priority, int set_PBR, uint32_t set_BSD)
 {
-  pthread_mutex_lock(&mutex);
   if (lch_id < NOF_UL_LCH) {
     priority[lch_id] = set_priority;
     PBR[lch_id]      = set_PBR;
@@ -96,7 +95,7 @@ void mux::set_priority(uint32_t lch_id, uint32_t set_priority, int set_PBR, uint
       new_index++; 
     }
     int old_index = 0; 
-    while(lch_id != lchid_sorted[old_index] && new_index < NOF_UL_LCH) {
+    while(lch_id != lchid_sorted[old_index] && old_index < NOF_UL_LCH) {
       old_index++;
     }
     if (new_index ==  NOF_UL_LCH) {
@@ -111,9 +110,7 @@ void mux::set_priority(uint32_t lch_id, uint32_t set_priority, int set_PBR, uint
     }
     priority_sorted[new_index] = set_priority;
     lchid_sorted[new_index]    = lch_id; 
-  }
-  pthread_mutex_unlock(&mutex);
-  
+  }  
 }
 
 sch_subh::cetype bsr_format_convert(bsr_proc::bsr_format_t format) {
@@ -247,7 +244,7 @@ bool mux::allocate_sdu(uint32_t lcid, srsue::sch_pdu* pdu_msg, int max_sdu_sz, u
             *sdu_sz = sdu_len; 
           }
           
-          Info("Allocated SDU lcid=%d nbytes=%d, buffer_state=%d, grant_size=%d, remaining_size=%d\n", 
+          Debug("Allocated SDU lcid=%d nbytes=%d, buffer_state=%d, grant_size=%d, remaining_size=%d\n", 
                  lcid, sdu_len, buffer_state, pdu_msg->get_pdu_len(), pdu_msg->rem_size());
           return true;               
         } else {
@@ -265,7 +262,7 @@ bool mux::allocate_sdu(uint32_t lcid, srsue::sch_pdu* pdu_msg, int max_sdu_sz, u
 
 void mux::msg3_flush()
 {
-  Info("Msg3 buffer flushed\n");
+  Debug("Msg3 buffer flushed\n");
   msg3_buff.flush();
   msg3_has_been_transmitted = false; 
 }
@@ -298,7 +295,7 @@ bool mux::pdu_move_to_msg3(uint32_t pdu_sz)
 uint8_t* mux::msg3_get(uint8_t *payload, uint32_t pdu_sz)
 {
   if (msg3_buff.isempty()) {
-    Info("Moving PDU from Mux unit to Msg3 buffer\n");
+    Debug("Moving PDU from Mux unit to Msg3 buffer\n");
     if (!pdu_move_to_msg3(pdu_sz)) {
       Error("Moving PDU from Mux unit to Msg3 buffer\n");
       return NULL;

@@ -168,7 +168,7 @@ void mac::run_thread() {
         sr_procedure.start();
       }
       if (bsr_procedure.need_to_reset_sr()) {
-        Info("Resetting SR procedure by BSR request\n");
+        Debug("Resetting SR procedure by BSR request\n");
         sr_procedure.reset();
       }
       sr_procedure.step(tti);
@@ -178,27 +178,19 @@ void mac::run_thread() {
         ra_procedure.start_mac_order();
       }
       ra_procedure.step(tti);
-
+      
       if (ra_procedure.is_successful() && !signals_pregenerated) {
-	
+
         // Configure PHY to look for UL C-RNTI grants
         uint16_t crnti = params_db.get_param(mac_interface_params::RNTI_C);
         phy_h->pdcch_ul_search(SRSLTE_RNTI_USER, crnti);
         phy_h->pdcch_dl_search(SRSLTE_RNTI_USER, crnti);
         
         // Pregenerate UL signals and C-RNTI scrambling sequences
-        Info("Pre-computing C-RNTI scrambling sequences for C-RNTI=0x%x\n", crnti);
+        Debug("Pre-computing C-RNTI scrambling sequences for C-RNTI=0x%x\n", crnti);
         ((phy*) phy_h)->set_crnti(crnti);
         signals_pregenerated = true; 
       }
-      
-      /*
-      cnt++; 
-      if (cnt==8000) {
-        printf("Starting RA again\n");
-        ra_procedure.start_mac_order();
-      }
-      */
       
       timers_db.step_all();          
     }
@@ -213,12 +205,12 @@ void mac::bcch_start_rx()
 void mac::bcch_start_rx(int si_window_start, int si_window_length)
 {
   if (si_window_length >= 0 && si_window_start >= 0) {
-    dl_harq.set_si_window_length(si_window_length);
+    dl_harq.set_si_window_start(si_window_start);
     phy_h->pdcch_dl_search(SRSLTE_RNTI_SI, SRSLTE_SIRNTI, si_window_start, si_window_start+si_window_length);
   } else {
     phy_h->pdcch_dl_search(SRSLTE_RNTI_SI, SRSLTE_SIRNTI, si_window_start);
   }
-  Info("Searching for DL grant for SI-RNTI window_st=%d, window_len=%d\n", si_window_start, si_window_length);  
+  Info("SCHED: Searching for DL grant for SI-RNTI window_st=%d, window_len=%d\n", si_window_start, si_window_length);  
 }
 
 void mac::bcch_stop_rx()
@@ -229,7 +221,7 @@ void mac::bcch_stop_rx()
 void mac::pcch_start_rx()
 {
   phy_h->pdcch_dl_search(SRSLTE_RNTI_PCH, SRSLTE_PRNTI);
-  Info("Searching for DL grant for P-RNTI\n");  
+  Info("SCHED: Searching for DL grant for P-RNTI\n");  
 }
 
 void mac::pcch_stop_rx()
