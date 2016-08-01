@@ -129,6 +129,14 @@ typedef struct {
   std::string sss_algorithm; 
   float estimator_fil_w; 
   float metrics_period_secs;
+  float sync_track_th;
+  float sync_track_avg_coef;
+  float sync_find_th;
+  float sync_find_max_frames;
+  bool enable_64qam_attach;
+  bool continuous_tx;
+  bool skip_mme_attach;
+  std::string pdn_ip_addr;
 }expert_args_t;
 
 typedef struct {

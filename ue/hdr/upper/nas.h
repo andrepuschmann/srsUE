@@ -32,6 +32,7 @@
 #include "common/common.h"
 #include "common/interfaces.h"
 #include "common/security.h"
+#include "upper/nas_params.h"
 #include "liblte_mme.h"
 
 namespace srsue {
@@ -74,7 +75,11 @@ public:
   uint32_t  get_ul_count();
   bool      is_attached();
   bool      get_s_tmsi(LIBLTE_RRC_S_TMSI_STRUCT *s_tmsi);
-  
+
+  /* Get/Set NAS parameters */
+  void    set_param(nas_param_t param, int64_t value);
+  int64_t get_param(nas_param_t param);
+
 private:
   buffer_pool        *pool;
   srslte::log        *nas_log;
@@ -98,6 +103,8 @@ private:
   // NAS counters - incremented for each security-protected message recvd/sent
   uint32_t count_ul;
   uint32_t count_dl;
+  
+  nas_params params_db;
 
   // Security
   uint8_t  ksi;
@@ -136,6 +143,8 @@ private:
   void send_esm_information_response();
 
   void gen_pdn_connectivity_request(LIBLTE_BYTE_MSG_STRUCT *msg);
+
+  void gen_forged_attach_accept(); // for OAI noS1 support
 };
 
 } // namespace srsue
